@@ -2,9 +2,11 @@ import streamlit as st
 import os
 import sys
 import mysql.connector
+from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath("pages"))
 
+load_dotenv(override=True)
 DB_PASSWORD = os.environ["DATABASE_PASSWORD"]
 # Connect to MySQL
 mydb = mysql.connector.connect(

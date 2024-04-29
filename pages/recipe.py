@@ -9,7 +9,12 @@ from streamlit_extras.stylable_container import stylable_container
 from streamlit.components.v1 import html
 import mysql.connector
 
+
+load_dotenv(override=True)
+SERPER = os.environ["SERPER_API_KEY"]
+API_KEY = os.environ["OPENAI_API_KEY"]
 DB_PASSWORD = os.environ["DATABASE_PASSWORD"]
+
 # Connect to MySQL
 mydb = mysql.connector.connect(
     host="localhost",
@@ -118,10 +123,6 @@ def make_meals(mealcount, user_prompt, dontwant, preferred_language, recipeList,
     st.divider()
     st.caption("By Kabir Ghai, made in 2024")
 
-
-load_dotenv(override=True)
-SERPER = os.environ["SERPER_API_KEY"]
-API_KEY = os.environ["OPENAI_API_KEY"]
 
 llm = OpenAI(api_key=API_KEY, temperature=0.9)
 
