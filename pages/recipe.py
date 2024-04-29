@@ -7,54 +7,113 @@ from langchain_openai import OpenAI
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from streamlit_extras.stylable_container import stylable_container
 from streamlit.components.v1 import html
+import mysql.connector
+
+DB_PASSWORD = os.environ["DATABASE_PASSWORD"]
+# Connect to MySQL
+mydb = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password=DB_PASSWORD,
+    database="RecipeGenerator"
+)
+mycursor = mydb.cursor()
+
+# Add 'cuisine' and 'image' columns to the table if they don't exist
+mycursor.execute("SHOW COLUMNS FROM Recipes LIKE 'cuisine'")
+result_cuisine = mycursor.fetchone()
+mycursor.execute("SHOW COLUMNS FROM Recipes LIKE 'image'")
+result_image = mycursor.fetchone()
+if not result_cuisine:
+    mycursor.execute("ALTER TABLE Recipes ADD COLUMN cuisine VARCHAR(255)")
+if not result_image:
+    mycursor.execute("ALTER TABLE Recipes ADD COLUMN image VARCHAR(255)")
+
+# Function to store recipe in MySQL
+
+
+def store_recipe(dish_name, ingredients, recipe, cuisine, image):
+    sql = "INSERT INTO Recipes (dish_name, ingredients, recipe, cuisine, image) VALUES (%s, %s, %s, %s, %s)"
+    val = (dish_name, ingredients, recipe, cuisine, image)
+    mycursor.execute(sql, val)
+    mydb.commit()
+
+# Function to retrieve recipes from MySQL
+
+
+def get_recipes():
+    mycursor.execute("SELECT * FROM Recipes ORDER BY created_at ASC")
+    recipes = mycursor.fetchall()
+    return recipes
+
+
+def get_all_recipe_names():
+    mycursor.execute("SELECT dish_name FROM Recipes")
+    recipes = mycursor.fetchall()
+    return recipes
 
 
 st.set_page_config(page_title="Make a recipe!", layout="wide",
                    initial_sidebar_state="collapsed")
 
 
-def make_meals(mealcount, user_prompt, dontwant, preferred_language, recipeNames, recipeList, meal_chain, max_time, calories, cuisine):
+def make_meals(mealcount, user_prompt, dontwant, preferred_language, recipeList, meal_chain, max_time, calories, cuisine):
+    recipeNames = []
+    for recipe_name in get_all_recipe_names():
+        recipeNames.append(recipe_name[0])
     for i in range(mealcount):
         with st.spinner(f"Generating meal {i+1} of {mealcount}..."):
-            output = meal_chain.invoke(
-                {"ingredients": user_prompt, "recipeNames": [i for i in recipeNames], "dontwant": dontwant, "language": preferred_language, "max_time": max_time, "calories": calories, "cuisine": cuisine})
+            invocationDict = {"ingredients": user_prompt,
+                              "recipeNames": recipeNames,
+                              "dontwant": dontwant,
+                              "language": preferred_language,
+                              "max_time": max_time,
+                              "calories": calories,
+                              "cuisine": cuisine}
+
+            output = meal_chain.invoke(invocationDict)
             food_name = output["recipe"].strip().split("\n")[0]
-            print(output["recipe"])
             recipeNames.append(food_name)
             search = GoogleSerperAPIWrapper(type="images")
             results = search.results(food_name)
             recipe_string = output["recipe"]
             image = results["images"][0]["imageUrl"]
-            start_index = recipe_string.find(
-                'Food name: ') + len('Food name: ')
 
-            # Concatenate the food name, recipe string, and image URL
-            output_string = f'{food_name} ||| {recipe_string} ||| {image}]'
+            recipe_name = food_name
+            ingredients = recipe_string.split("Instructions:")[0].strip()
+            instructions = recipe_string.split("Instructions:")[1].strip()
 
-            # This puts the most recent images on top
-            with open('pages/food.txt', 'r+') as file:
-                original_content = file.read()
-                file.seek(0)
-                file.write(output_string + original_content)
+            recipe_data = {
+                "ingredients": ingredients,
+                "instructions": instructions
+            }
 
-            # Assign each food to it's image
-            recipeList[output["recipe"]] = image
-            lorem = (f"""
-<img src="{list(recipeList.values())[i]}" width="300">
-<p><em>Please note these images should be to show how you could plate the food and may not be the exact recipe.</em></p>
-<p>{recipe_string.split("Instructions:")[0]}</p>
-<p>Instructions: {recipe_string.split("Instructions:")[1]}</p>
-"""
-            )
+            # Store recipe in MySQL database
+            store_recipe(food_name, ingredients, recipe_string, cuisine, image)
 
-            html(lorem, height=800, scrolling=True)
+            # Assign each food to its image
+            recipeList[food_name] = {
+                "recipe_name": recipe_name,
+                "recipe_data": recipe_data,
+                "image": image
+            }
 
-            # a1.image(list(recipeList.values())[i], width=300)
-            # a1.caption(
-            #     "Please note these images should be to show how you could plate the food and may not be the exact recipe.")
-            # a1.write(recipe_string.split("Instructions:")[0])
-            # a1.write(f"""Instructions: {
-            #          recipe_string.split("Instructions:")[1]}""")
+            # Improved HTML formatting
+            html_output = f"""
+            <img src="{image}" width="300">
+            <p><em>Please note these images should be to show how you could plate the food and may not be the exact recipe.</em></p>
+            <h3>{food_name}</h3>
+            <h4>Ingredients:</h4>
+            <ul>
+            {ingredients}
+            </ul>
+            <h4>Instructions:</h4>
+            <ul>
+            {instructions}
+            </ul>
+            """
+            a1.write(html_output, unsafe_allow_html=True)
+            a1.divider()
 
     st.divider()
     st.caption("By Kabir Ghai, made in 2024")
@@ -66,9 +125,10 @@ API_KEY = os.environ["OPENAI_API_KEY"]
 
 llm = OpenAI(api_key=API_KEY, temperature=0.9)
 
+
 recipe_prompt_template = PromptTemplate(
-    template="""Provide a recipe of the following cuisine: {cuisine} that takes under {max_time} minutes to cook, with every word in {language}, using some or all of these ingredients if given: {ingredients}. 
-    DON'T PICK ANYTHING CLOSE TO ANYTHING IN THIS LIST: {recipeNames}. 
+    template="""Provide a recipe of the following cuisine: {cuisine}. If the cuisine name given is "any" or similar, you may pick any common cuisine (English, Italian or similar). The recipe must take under {max_time} minutes to cook, with every word in {language}, using some or all of these ingredients if given: {ingredients}. 
+    DON'T MAKE ANYTHING CLOSE TO ANYTHING IN THIS LIST: {recipeNames}. 
     DO NOT INCLUDE ANY OF THESE UNDER ANY CIRCUMSTANCES: {dontwant}.
     The amount of calories in this recipe must be between the two numbers in these brackets: {calories}.
     
@@ -77,11 +137,13 @@ recipe_prompt_template = PromptTemplate(
     FOLLOW THE FORMAT BELOW:
     FOLLOW THE FORMAT BELOW:
     
-    Put the food name here
+    Put the food name here. DO NOT WRITE "any".
 
-    Ingredients: (Put the ingredients here. Do not include the same ingredient more than once. Separate each ingredient with a newline and bullet points.)
+    Ingredients: 
+    (Put the ingredients here. Do not include the same ingredient more than once. Separate each ingredient with a newline and bullet points.)
 
-    Instructions: (Put the instructions here. Separate each step with a newline and bullet points. PROVIDE THE FULL RECIPE, DO NOT STOP HALFWAY THROUGH.)
+    Instructions: 
+    (Put the instructions here. Separate each step with a backslash-n (newline) and bullet points. PROVIDE THE FULL RECIPE, DO NOT STOP HALFWAY THROUGH.)
 
     YOUR RECIPE MUST END WITH HOW YOU PUT THE FOOD ON THE PLATE. DO NOT STOP BEFORE THAT.
     DO NOT MIX sweet and savoury or make "weird" food combinations (like chicken and meringues)
@@ -95,7 +157,6 @@ meal_chain = LLMChain(llm=llm, prompt=recipe_prompt_template,
                       verbose=True, output_key="recipe")
 
 recipeList = {}
-recipeNames = []
 st.title("Make a recipe!")
 user_prompt = st.text_input(
     "Enter ingredients separated by commas or press 'Surprise me!'")
@@ -140,11 +201,11 @@ preferred_language = a2.selectbox(
 if generate_button:
     if user_prompt:
         make_meals(mealcount, user_prompt, dontwant,
-                   preferred_language, recipeNames, recipeList, meal_chain, max_time, calories, cuisine)
+                   preferred_language, recipeList, meal_chain, max_time, calories, cuisine)
     else:
-        st.warning("Please enter ingredients or press 'Surprise me!'")
+        a1.warning("Please enter ingredients or press 'Surprise me!'")
 
 if surprise_button:
     make_meals(1, user_prompt, "", "English",
-               recipeNames, recipeList, meal_chain, max_time, calories, "Any that you want.")
+               recipeList, meal_chain, max_time, calories, "any")
     # st.stop()
