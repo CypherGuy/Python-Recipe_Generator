@@ -1,0 +1,7 @@
+streamlit==1.2.0
+mysql-connector-python==8.0.28
+python-dotenv==0.19.2
+streamlit-extras==0.2.0
+langchain==0.1.0
+langchain-openai==0.1.0
+langchain-community==0.1.0
