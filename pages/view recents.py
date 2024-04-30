@@ -7,13 +7,13 @@ from dotenv import load_dotenv
 sys.path.append(os.path.abspath("pages"))
 
 load_dotenv(override=True)
-DB_PASSWORD = os.environ["DATABASE_PASSWORD"]
+DB_PASSWORD = os.environ["DATABASE_PASSWORD_RECIPES"]
 # Connect to MySQL
 mydb = mysql.connector.connect(
-    host="localhost",
-    user="root",
+    host="up-es-mad1-mysql-1.db.run-on-seenode.com",
+    user="db-7ad1m7sybak3",
     password=DB_PASSWORD,
-    database="RecipeGenerator"
+    database="db-7ad1m7sybak3"
 )
 mycursor = mydb.cursor()
 

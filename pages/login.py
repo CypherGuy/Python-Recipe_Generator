@@ -5,13 +5,13 @@ from dotenv import load_dotenv
 from streamlit_extras.switch_page_button import switch_page
 
 load_dotenv(override=True)
-DB_PASSWORD = os.environ["DATABASE_PASSWORD"]
+DB_PASSWORD = os.environ["DATABASE_PASSWORD_LOGINS"]
 # Connect to MySQL
 mydb = mysql.connector.connect(
-    host="localhost",
-    user="root",
+    host="up-es-mad1-mysql-1.db.run-on-seenode.com",
+    user="db-gzq8ch6z4qe5",
     password=DB_PASSWORD,
-    database="RecipeGenerator"
+    database="db-gzq8ch6z4qe5"
 )
 mycursor = mydb.cursor()
 

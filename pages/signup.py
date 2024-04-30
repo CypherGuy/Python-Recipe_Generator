@@ -7,7 +7,7 @@ import time
 
 
 load_dotenv(override=True)
-DB_PASSWORD = os.environ["DATABASE_PASSWORD"]
+DB_PASSWORD = os.environ["DATABASE_PASSWORD_LOGINS"]
 # Connect to MySQL
 mydb = mysql.connector.connect(
     host="localhost",
