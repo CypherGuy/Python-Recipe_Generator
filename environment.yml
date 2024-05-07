@@ -1,0 +1,15 @@
+name: pantrypal
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8.11
+  - mysql-connector-python
+  - python-dotenv
+  - streamlit-extras
+  - langchain
+  - langchain-openai
+  - langchain-community
+  - pip
+  - pip:
+      - streamlit
