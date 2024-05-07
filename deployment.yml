@@ -18,7 +18,7 @@ properties:
   imageRegistryCredentials:
     - server: pantrypalregistry.azurecr.io
       username: pantrypalregistry
-      password: FUEigBFPEUpOM/4ajeCmF6lxJDixKiqHgv9BWsUQkY+ACRAYwfEv
+      password: ${YML_PASSWORD}
   restartPolicy: Never
   ipAddress:
     ports:
